@@ -1,0 +1,19 @@
+---
+title: "R Basics for Lecture 1 B"
+font-family: 'Corbel'
+output: github_document
+---
+
+
+## PSY V0500 Statistical Methods in Psychology
+## Kevin R Foster, Colin Powell School, the City College of New York, CUNY
+  
+  
+```{r echo=FALSE}
+load("BRFSS2022_rev.RData")
+attach(brfss22)
+```
+
+### Examples
+The BRFSS data has `r prettyNum(nrow(brfss22), big.mark = ",")` people in this dataset.
+

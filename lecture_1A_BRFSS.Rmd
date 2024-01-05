@@ -1,0 +1,185 @@
+---
+title: "R Basics for Lecture 1 A"
+font-family: 'Corbel'
+output: github_document
+---
+
+## PSY V0500 Statistical Methods in Psychology
+## Kevin R Foster, Colin Powell School, the City College of New York, CUNY
+
+
+```{r echo=FALSE}
+load("BRFSS2022_rev.RData")
+attach(brfss22)
+```
+
+
+## Variable Coding
+Some of the BRFSS variables here have a natural interpretation, for instance `SLEPTIM1` is measured in hours. Actually even this has a bit of a twist, look at the histogram. 
+```{r}
+hist(SLEPTIM1[(SLEPTIM1 >5) & (SLEPTIM1 < 9)])
+
+```
+
+These are clearly rounded to the nearest hour. So although the underlying variable might be a real number, it's coded as an integer.
+
+We also have to be careful about how to interpret the NA responses. Those could mean any of a variety of things: perhaps the person asking the questions skipped a part (accidentally or intentionally), perhaps the responder gave a long rambling answer that couldn't fit a coding (for example, asked about whether they got a Covid shot, the response is a diatribe about the government telling people what to do), or perhaps they just refused to answer. In many of these cases the person just wasn't asked.
+
+For instance, compare these 
+```{r}
+summary(SEXVAR)
+summary(BIRTHSEX)
+```
+If you didn't check the number of NA values in BIRTHSEX, you would have a very odd view. Most people aren't asked a separate question about sex assigned at birth; this is a complicated topic. The data presented here is an imperfect description of reality, sometimes the result of a tension between the people creating the survey and the people answering. Reality is more complicated than simple answers, even in a well-designed survey.
+
+Some variables are a Likert scale, such as
+```{r}
+summary(GENHLTH)
+```
+This is basically asking people to rate their health on a scale from 1 to 5. Sometimes it's useful to treat those as numbers that we can do math with; sometimes not. Note that here the middle value is labeled as "Good". Other Likert scales might ask people to rate from 1 to 10 or from 1 to 7.
+
+Many of the BRFSS variables are factors and the R language provides lots of help with them. Basically a factor lumps together a bunch of 0/1 answers. Mapping logical operations into math is a great help.
+
+The factor, 'X_HISPANC', is a single y/n or 0/1 answer: is the respondent Hispanic. But then EDUCA is a whole bunch of y/n answers: is the person's highest completed educational level only kindergarten or never had school; is the person's highest completed educational level grade 1 to 9; did they get through some high school; did they end after getting high school diploma; etc. When you ask for a summary of EDUCA,
+
+```{r}
+summary(EDUCA)
+```
+R helpfully provides labels for each of those all together. For various cases we might want to combine some of those together.
+
+It's important to remember that there are some cases where the factor values are well ordered (as with highest educational qualification) versus others such as X_STATE (the state the person lives in) where there is not necessarily an ordering.
+
+Factors are really useful, enough that different people have developed packages specifically to manipulate factors.
+
+### Packages
+R depends crucially on "packages" - that's the whole reason that the open-source works so well. Some statistician invents a cool new technique, then writes up the code in R and makes it available. If you used a commercial program you'd have to wait a decade for them to update it; in R it's here now. Also if somebody hacks a nicer or easier way to do stuff, they write it up. Packages are extensions for specific tasks and you can tell R to install specific ones. Many people who use R don't need to create detailed maps but if you want that, there's a package. If you want to analyze genetic sequences, there's a package.
+
+Hadley Wickham wrote 'forcats' for categorical data (ie factors). It's part of the 'tidyverse' package.
+
+So enter this into the Console,
+```
+install.packages("tidyverse")
+install.packages("plyr")
+```
+then
+```{r warning=FALSE, message=FALSE}
+
+library(plyr)
+library(tidyverse)
+
+```
+
+Alt, from R-Studio, click "Tools" then "Install Packages..." and tell it to install the package, "tidyverse". That is nice if you want to see some of the packages or if you don't quite remember the name. Then the next piece of code, library, tells the program that you want to use commands from this package. You only need to install once, then just put library() into your code and run that part.
+
+### Factors
+R will do the summary differently when it knows the variable is a factor,
+```{r}
+summary(X_AGEG5YR)
+summary(INCOME3)
+
+```
+
+I know, we'd like if age or income were a regular number not a factor, but that's what survey provides, as a way of helping keep confidentiality.
+
+To find mean and standard deviation of sleeptime by income, you could use something like this,
+
+```{r}
+ddply(brfss22, .(INCOME3), summarize, mean = round(mean(SLEPTIM1, na.rm = TRUE), 2), sd = round(sd(SLEPTIM1, na.rm = TRUE), 2), n_obsv = length(is.na(SLEPTIM1) == FALSE) )
+```
+Although tapply would also work fine.
+
+Here's the 90th and 10th percentiles of sleeptime by income,
+
+```{r}
+
+ddply(brfss22, .(INCOME3), summarize, sleep90th = quantile(SLEPTIM1,probs = 0.9, na.rm = TRUE), sleep10th = quantile(SLEPTIM1,probs = 0.1, na.rm = TRUE), n_obs = length(is.na(SLEPTIM1) == FALSE) )
+```
+
+You could also use table (or crosstabs) for factors with fewer items,
+
+```{r}
+table(GENHLTH,SEXVAR)
+xtabs(~GENHLTH + SEXVAR)
+```
+Want proportions instead of counts?
+```{r}
+prop.table(table(GENHLTH,SEXVAR))
+```
+*Remember prop.table later when we do marginals.*
+
+
+### Alt versions
+In general, R is very flexible so there are often many different ways to get the same answer. There are some people who love to debate which is best. (Often, tradeoff between speed and intelligibility.) For now just worry about learning at least one way. Later on you can go back and refine your techniques.
+
+Sometimes attaching a dataset makes things easier. But as you get more advanced you might find it better to include the dataset name inside the function. There are advantages and disadvantages each way and some of the intro texts suggest one or the other.
+
+If you do a lot of analysis on a particular subgroup, it might be worthwhile to create a subset of that group, so that you don't have to always add on logical conditions. These two sets of expressions get the same results:
+
+```{r message=FALSE}
+mean(SLEPTIM1[(EDUCA == "College 4 years or more (College graduate)")], na.rm = TRUE)
+
+# alternatively
+restrict1 <- as.logical(EDUCA == "College 4 years or more (College graduate)")
+dat_subset1 <- subset(brfss22, restrict1)
+
+detach()
+attach(dat_subset1)
+
+mean(SLEPTIM1, na.rm = TRUE)
+
+detach()
+
+
+```
+So you detach the original data frame and instead attach the restricted version. Then any subsequent analysis would be just done on that subset. Just remember that you've done this (again, this is a good reason to save the commands in a program so you can look back) otherwise you'll wonder why you suddenly don't have so many people in the sample! 
+
+Obviously for a single restriction that might not be worthwhile but later you might have more complicated propositions.
+
+Even better, though, is to avoid the `attach` and `detach` since those can easily cause confusion. Instead, explicitly tell it which variable in which dataset you're thinking about, so `datasetname$variable`
+
+```{r message=FALSE}
+mean(brfss22$SLEPTIM1, na.rm = TRUE)
+mean(dat_subset1$SLEPTIM1, na.rm = TRUE)
+
+
+```
+
+
+## Why All These Details?
+You might be tired and bored by these details, but note that there are actually important choices to be made here, even in simply defining variables. Take the fraught American category of "race". This data has a variable, X_PRACE2, showing how people chose to classify themselves, as 'White,' 'Black,' 'Asian,' or other.
+
+In this case the Survey has chosen particular values while alternate responses go into the category of "Other". 
+
+There's no "right" way to do it because there's no science in this peculiar-but-popular concept of "race". People's conceptions of themselves are fuzzy and complicated; these measures are approximations.
+
+The US government asks questions about people's race and ethnicity. These categories are social constructs, which is a fancy way of pointing out that they are based on people's own views of themselves (influenced by how we think that other people think of us...). Currently the standard classification asks people separately about their "race" and "ethnicity" where people can pick labels from each category in any combination.
+
+The "race" categories include: "White," "Black," "Asian," and others. These represent a recent history of popular attitudes in the US. Only in the 2000 Census did they start to classify people in multiple races. If you were to go back to historical US Censuses from more than a century ago, you would find that the category "race" included separate entries for races such as Irish and French. Ta-Nehisi Coates notes, "racism invented race in America." Throughout history, statistics have been used to try to prove peoples' prejudices.
+
+Note that "Hispanic" is not "race" but rather ethnicity (includes various other labels such as Spanish, Latino, etc.). So a respondent could choose "Hispanic" and any race category -- some choose "White," some choose "Black" or "Asian" or "Other".
+
+If you wanted to create a variable for those who report themselves as Black and Hispanic, you'd use the expression (X_PRACE2 == "Black or African American") & (X_HISPANC == "yes Hispanic"); sometimes government stats report for non-Hispanic whites so (X_PRACE2 == "White") & (X_HISPANC != "Hispanic"). You can create your own classifications depending on what questions you're investigating. 
+
+
+### Re-Coding complicated variables from initial data
+If we want more combinations of variables then we create those. Usually a statistical analysis spends a lot of time doing this sort of housekeeping - dull but necessary. It has a variety of names: data carpentry, data munging...
+
+This dataset lumps together those who have a 4-year college degree with those who have an advanced degree, while it differentiates those with various steps less than high school. Other datasets might provide different detail.
+
+That's the whole point of learning to do the data work for yourself: you can see all of the little decisions that go into creating a conclusion. Some conclusions might be fragile so a tiny decision about coding could change everything; other conclusions are robust to deviations. You must find out.
+
+# De-bugging
+Without a doubt, programming is tough. In R or with any other program, it is frustrating and complicated and difficult to do it the first few times. Some days it feels like a continuous battle just to do the simplest thing! Keep going despite that, keep working on it. 
+
+Your study group will be very helpful of course.
+
+Often a google search of the error message helps. If you've isolated the error and read the help documentation on that command, then you're on your way to solving the problem on your own.
+
+If you have troubles that you can't solve, email me for help. But try to narrow down your question: if you run 20 lines of code that produce an error, is there a way to reproduce the error in just 5 lines? What if you did the same command on much simpler data, would it still cause an error? Sending emails like "I have a problem with errors" might be cathartic but is not actually useful to anyone. If you email me with the minimal code that recreates the error, along with the text of the error and/or a screenshot, then that will help more.
+
+## Do it
+In the first lab we will start working on these questions. Begin by running the code that I give here, just to see if you can replicate my results. Then start asking more questions about the data - there is so much info there! Have some fun.
+
+```{r echo=FALSE}
+detach()
+```
